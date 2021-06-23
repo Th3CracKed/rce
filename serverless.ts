@@ -1,6 +1,6 @@
 import type { AWS } from '@serverless/typescript';
 
-import hello from '@functions/hello';
+import rce from '@functions/rce';
 
 const serverlessConfiguration: AWS = {
   service: 'rce-sls',
@@ -25,7 +25,7 @@ const serverlessConfiguration: AWS = {
     lambdaHashingVersion: '20201221',
   },
   // import the function via paths
-  functions: { hello },
+  functions: { rce },
 };
 
 module.exports = serverlessConfiguration;
