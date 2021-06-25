@@ -1,0 +1,21 @@
+# package directories
+node_modules
+jspm_packages
+
+# Serverless directories
+.serverless
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# webpack build directory
+.webpack
+.tmp
+
+# secure settings to not commit
+**/.settings.*.yml
+!**/settings/.settings.demo.yml
