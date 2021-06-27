@@ -39,7 +39,6 @@ const rce = async (event) => {
 
   const buffer = await createZipFile('index.' + lang, wrappedCode);
   const params: Lambda.Types.CreateFunctionRequest = getParams(buffer);
-  // TODO IAM ROLE TO CREATE/INVOKE/DELETE FUNCTION
   try {
     await createFunction(params);
     const result = await invokeFunction(params.FunctionName);

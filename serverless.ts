@@ -3,7 +3,7 @@ import type { AWS } from '@serverless/typescript';
 import rce from '@functions/rce';
 
 const serverlessConfiguration: AWS = {
-  service: 'rce-sls',
+  service: 'rce-sls2',
   frameworkVersion: '2',
   custom: {
     webpack: {
@@ -26,6 +26,24 @@ const serverlessConfiguration: AWS = {
       region: '${opt:region, self:custom.ext.region}',
     },
     lambdaHashingVersion: '20201221',
+    iamRoleStatements: [
+      {
+        Effect: "Allow",
+        Action: [
+          "iam:PassRole",
+        ],
+        Resource: "*",
+      },
+      {
+        Effect: "Allow",
+        Action: [
+          "lambda:CreateFunction",
+          "lambda:InvokeFunction",
+          "lambda:DeleteFunction",
+        ],
+        Resource: "*",
+      },
+    ],
   },
   // import the function via paths
   functions: { rce },
