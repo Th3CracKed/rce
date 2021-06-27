@@ -14,7 +14,7 @@ jspm_packages
 
 # webpack build directory
 .webpack
-.tmp
+.tmp/*
 
 # secure settings to not commit
 **/.settings.*.yml

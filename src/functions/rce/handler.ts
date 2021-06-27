@@ -14,13 +14,10 @@ const rce = async (event) => {
   console.log('Event is :');
   console.log(event.body.code);
   // check event validity ==> contains code 
-
-  var functionName = "dynamicLambda";
-  console.log("uploaded to lambda function: " + functionName);
   const buffer = await createZipFile(event);
-  console.log('Done')
+  const functionName = 'randomString';
   const params: Lambda.Types.CreateFunctionRequest = {
-    FunctionName: 'randomString',
+    FunctionName: functionName,
     Role: 'arn:aws:iam::340383546424:role/service-role/hello-role-edm0rxo6', // TODO create role
     Code: {
       ZipFile: buffer
@@ -28,12 +25,13 @@ const rce = async (event) => {
     Runtime: "nodejs14.x",
     Handler: 'index.handler'
   };
-
+  // TODO IAM ROLE TO CREATE/INVOKE/DELETE FUNCTION
 
   await createFunction(params);
 
   try {
     const result = await invokeFunction(params.FunctionName);
+    deleteFunction(params.FunctionName);
     return formatJSONResponse({
       result
     });
@@ -79,7 +77,21 @@ async function invokeFunction(functionName: string) {
         resolve(data.Payload.toString());
       }
     });
-  })
+  });
+}
+
+function deleteFunction(functionName: string) {
+  return new Promise<boolean>((resolve, reject) => {
+    lambda.deleteFunction({ FunctionName: functionName }, function (err) {
+      if (err) {
+        console.log(err, err.stack);
+        reject(JSON.stringify(err));
+      } else {
+        console.log(`Lambda ${functionName} deleted`);
+        resolve(true);
+      }
+    });
+  });
 }
 
 function createZipFile(event: any) {
@@ -105,6 +117,7 @@ function createZipFile(event: any) {
     return archive;
   });
 }
-// TODO IAM ROLE TO CREATE FUNCTION
+
 
 export const main = middyfy(rce);
+
