@@ -15,12 +15,14 @@ const lambda = new Lambda({ region, httpOptions: { timeout: 360000 } });
 const rce = async (event) => {
   console.log('Event is :');
   console.log(event.body.code);
-  // check event validity ==> contains code 
   const { lang = 'js', code: userCode } = event.body;
-  const buffer = await createZipFile(lang, userCode);
+  // TODO wrapper needs to adapt with lang
+  const wrappedCode = `exports.handler = async (event) => {
+    ${userCode}
+  };`
+  const buffer = await createZipFile('index.' + lang, wrappedCode);
   const params: Lambda.Types.CreateFunctionRequest = getParams(buffer);
   // TODO IAM ROLE TO CREATE/INVOKE/DELETE FUNCTION
-
 
   try {
     await createFunction(params);
@@ -101,17 +103,13 @@ function deleteFunction(functionName: string) {
   });
 }
 
-function createZipFile(lang: string, userCode: string) {
+function createZipFile(fileName: string, code: string) {
   return new Promise<Buffer>((resolve, reject) => {
     const zipPath = IS_ONLINE ? '/tmp/example.zip' : 'tmp/example.zip';
     const output = fs.createWriteStream(zipPath);
     const archive = archiver('zip');
     archive.pipe(output);
-    // TODO wrapper needs to adapt with lang
-    const wrappedCode = `exports.handler = async (event) => {
-      ${userCode}
-    };`
-    archive.append(wrappedCode, { name: 'index.' + lang });
+    archive.append(code, { name: fileName }); // TODO needs to be adapted to multi lang
     const buffer = [];
     archive
       .on('data', (data => buffer.push(data)))
