@@ -7,6 +7,8 @@ import Lambda from 'aws-sdk/clients/lambda';
 import archiver from 'archiver';
 import fs from 'fs';
 import { formatErrorJSONResponse, formatJSONResponse } from '@libs/apiGateway';
+import { v4 as uuidv4 } from 'uuid';
+
 
 const lambda = new Lambda({ region, httpOptions: { timeout: 360000 } });
 
@@ -14,24 +16,15 @@ const rce = async (event) => {
   console.log('Event is :');
   console.log(event.body.code);
   // check event validity ==> contains code 
-  const buffer = await createZipFile(event);
-  const functionName = 'randomString';
-  const params: Lambda.Types.CreateFunctionRequest = {
-    FunctionName: functionName,
-    Role: 'arn:aws:iam::340383546424:role/service-role/hello-role-edm0rxo6', // TODO create role
-    Code: {
-      ZipFile: buffer
-    },
-    Runtime: "nodejs14.x",
-    Handler: 'index.handler'
-  };
+  const { lang = 'js', code: userCode } = event.body;
+  const buffer = await createZipFile(lang, userCode);
+  const params: Lambda.Types.CreateFunctionRequest = getParams(buffer);
   // TODO IAM ROLE TO CREATE/INVOKE/DELETE FUNCTION
 
-  await createFunction(params);
 
   try {
+    await createFunction(params);
     const result = await invokeFunction(params.FunctionName);
-    deleteFunction(params.FunctionName);
     return formatJSONResponse({
       result
     });
@@ -39,10 +32,24 @@ const rce = async (event) => {
     return formatErrorJSONResponse({
       error
     });
+  } finally {
+    deleteFunction(params.FunctionName);
   }
 
 }
 
+
+function getParams(buffer: Buffer): Lambda.CreateFunctionRequest {
+  return {
+    FunctionName: uuidv4(),
+    Role: 'arn:aws:iam::340383546424:role/service-role/hello-role-edm0rxo6',
+    Code: {
+      ZipFile: buffer
+    },
+    Runtime: "nodejs14.x",
+    Handler: 'index.handler'
+  };
+}
 
 function createFunction(params: Lambda.CreateFunctionRequest) {
   return new Promise<void>((resolve, reject) => {
@@ -94,13 +101,12 @@ function deleteFunction(functionName: string) {
   });
 }
 
-function createZipFile(event: any) {
+function createZipFile(lang: string, userCode: string) {
   return new Promise<Buffer>((resolve, reject) => {
     const zipPath = IS_ONLINE ? '/tmp/example.zip' : 'tmp/example.zip';
     const output = fs.createWriteStream(zipPath);
     const archive = archiver('zip');
     archive.pipe(output);
-    const { lang = 'js', code: userCode } = event.body;
     // TODO wrapper needs to adapt with lang
     const wrappedCode = `exports.handler = async (event) => {
       ${userCode}
