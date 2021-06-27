@@ -17,18 +17,34 @@ const rce = async (event) => {
   console.log(event.body.code);
   const { lang = 'js', code: userCode } = event.body;
   // TODO wrapper needs to adapt with lang
-  const wrappedCode = `exports.handler = async (event) => {
+  const wrappedCode = `
+  exports.handler = async (event, context) => {
+  const logs = [];
+  (function() {
+    const exLog = console.log;
+    console.log = function(msg) {
+        logs.push(msg);
+        exLog.apply(this, arguments);
+    }
+  })()
+    userCode();
+    return logs;
+  };
+  
+  function userCode() {
     ${userCode}
-  };`
+  }
+  `
+
+
   const buffer = await createZipFile('index.' + lang, wrappedCode);
   const params: Lambda.Types.CreateFunctionRequest = getParams(buffer);
   // TODO IAM ROLE TO CREATE/INVOKE/DELETE FUNCTION
-
   try {
     await createFunction(params);
     const result = await invokeFunction(params.FunctionName);
     return formatJSONResponse({
-      result
+      result: JSON.parse(result)
     });
   } catch (error) {
     return formatErrorJSONResponse({
