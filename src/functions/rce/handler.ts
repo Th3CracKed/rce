@@ -4,6 +4,7 @@ import { middyfy } from '@libs/lambda';
 import { IS_ONLINE, region } from '@libs/environements';
 
 import Lambda from 'aws-sdk/clients/lambda';
+import S3 from 'aws-sdk/clients/s3';
 import archiver from 'archiver';
 import fs from 'fs';
 import { formatErrorJSONResponse, formatJSONResponse } from '@libs/apiGateway';
@@ -15,35 +16,18 @@ const lambda = new Lambda({ region, httpOptions: { timeout: 360000 } });
 const rce = async (event) => {
   console.log('Event is :');
   console.log(event.body.code);
-  const { lang = 'js', code: userCode } = event.body;
-  // TODO wrapper needs to adapt with lang
-  const wrappedCode = `
-  exports.handler = async (event, context) => {
-  const logs = [];
-  (function() {
-    const exLog = console.log;
-    console.log = function(msg) {
-        logs.push(msg);
-        exLog.apply(this, arguments);
-    }
-  })()
-    userCode();
-    return logs;
-  };
-  
-  function userCode() {
-    ${userCode}
-  }
-  `
+  const { lang = 'js', code: lambdaCode } = event.body;
 
-
-  const buffer = await createZipFile('index.' + lang, wrappedCode);
+  const buffer = await createZipFile('index.' + lang, lambdaCode);
   const params: Lambda.Types.CreateFunctionRequest = getParams(buffer);
   try {
     await createFunction(params);
-    const result = await invokeFunction(params.FunctionName);
+    await invokeFunction(params.FunctionName);
+    console.log('Getting Logs...');
+    const logs = await getLogs(params.FunctionName);
+    console.log('logs', logs.Body.toString());
     return formatJSONResponse({
-      result: JSON.parse(result)
+      result: logs.Body.toString()
     });
   } catch (error) {
     return formatErrorJSONResponse({
@@ -59,12 +43,18 @@ const rce = async (event) => {
 function getParams(buffer: Buffer): Lambda.CreateFunctionRequest {
   return {
     FunctionName: uuidv4(),
-    Role: 'arn:aws:iam::340383546424:role/service-role/hello-role-edm0rxo6',
+    Role: 'arn:aws:iam::340383546424:role/service-role/hello_logs-role-bulpcu1p',
     Code: {
       ZipFile: buffer
     },
     Runtime: "nodejs14.x",
-    Handler: 'index.handler'
+    Handler: 'index.handler',
+    Layers: ['arn:aws:lambda:eu-west-3:340383546424:layer:logs_extension:23'],
+    Environment: {
+      Variables: {
+        LOGS_S3_BUCKET_NAME: 'rce2021'
+      }
+    }
   };
 }
 
@@ -137,6 +127,21 @@ function createZipFile(fileName: string, code: string) {
   });
 }
 
+function getLogs(functionName: string) {
+  return new Promise<S3.GetObjectOutput>((resolve) => {
+    setTimeout(() => {
+      const s3 = new S3({ region: process.env.region })
+      const objectKey = functionName + '.json';
+      console.log('objectKey', objectKey);
+      s3.getObject({ Bucket: 'rce2021', Key: objectKey }, (err, data) => {
+        if (err) {
+          console.error(err);
+          return getLogs(functionName);
+        }
+        resolve(data);
+      });
+    }, 10000);
+  });
+}
 
 export const main = middyfy(rce);
-

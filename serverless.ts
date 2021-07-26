@@ -17,6 +17,7 @@ const serverlessConfiguration: AWS = {
     name: 'aws',
     runtime: 'nodejs14.x',
     region: 'eu-west-3',
+    timeout: 30,
     apiGateway: {
       minimumCompressionSize: 1024,
       shouldStartNameWithService: true,
@@ -33,6 +34,21 @@ const serverlessConfiguration: AWS = {
           "iam:PassRole",
         ],
         Resource: "*",
+      },
+      {
+        Effect: "Allow",
+        Action: [
+          "s3:Get*",
+          "s3:List*"
+        ],
+        Resource: "arn:aws:s3:::rce2021",
+      },
+      {
+        Effect: "Allow",
+        Action: [
+          "lambda:GetLayerVersion",
+        ],
+        Resource: "arn:aws:lambda:eu-west-3:340383546424:layer:logs_extension:*",
       },
       {
         Effect: "Allow",
