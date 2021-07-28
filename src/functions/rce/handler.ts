@@ -4,12 +4,11 @@ import { middyfy } from '@libs/lambda';
 import { IS_ONLINE, region } from '@libs/environements';
 
 import Lambda from 'aws-sdk/clients/lambda';
-import S3 from 'aws-sdk/clients/s3';
 import archiver from 'archiver';
 import fs from 'fs';
 import { formatErrorJSONResponse, formatJSONResponse } from '@libs/apiGateway';
 import { v4 as uuidv4 } from 'uuid';
-
+import AWS from 'aws-sdk';
 
 const lambda = new Lambda({ region, httpOptions: { timeout: 360000 } });
 
@@ -24,10 +23,10 @@ const rce = async (event) => {
     await createFunction(params);
     await invokeFunction(params.FunctionName);
     console.log('Getting Logs...');
-    const logs = await getLogs(params.FunctionName);
-    console.log('logs', logs.Body.toString());
+    const logs = await getLogs(params.FunctionName, region);
+    console.log('logs', logs);
     return formatJSONResponse({
-      result: logs.Body.toString()
+      result: logs
     });
   } catch (error) {
     return formatErrorJSONResponse({
@@ -49,7 +48,7 @@ function getParams(buffer: Buffer): Lambda.CreateFunctionRequest {
     },
     Runtime: "nodejs14.x",
     Handler: 'index.handler',
-    Layers: ['arn:aws:lambda:eu-west-3:340383546424:layer:logs_extension:23'],
+    Layers: ['arn:aws:lambda:eu-west-3:340383546424:layer:logs_extension:27'],
     Environment: {
       Variables: {
         LOGS_S3_BUCKET_NAME: 'rce2021'
@@ -127,20 +126,25 @@ function createZipFile(fileName: string, code: string) {
   });
 }
 
-function getLogs(functionName: string) {
-  return new Promise<S3.GetObjectOutput>((resolve) => {
-    setTimeout(() => {
-      const s3 = new S3({ region: process.env.region })
-      const objectKey = functionName + '.json';
-      console.log('objectKey', objectKey);
-      s3.getObject({ Bucket: 'rce2021', Key: objectKey }, (err, data) => {
-        if (err) {
-          console.error(err);
-          return getLogs(functionName);
-        }
-        resolve(data);
-      });
-    }, 10000);
+function getLogs(id: string, region: string) {
+  return new Promise<string>((resolve) => {
+    const dynamoDbClient = new AWS.DynamoDB.DocumentClient({ region });
+    dynamoDbClient.get({
+      TableName: 'logs',
+      Key: {
+        id
+      }
+    }, async (err, data) => {
+      console.log('data', data);
+      if (data?.Item?.log) {
+        resolve(data.Item.log);
+        return;
+      } else if (err) {
+        console.error(err);
+      }
+      const logs = await getLogs(id, region);
+      resolve(logs);
+    });
   });
 }
 

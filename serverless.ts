@@ -24,7 +24,7 @@ const serverlessConfiguration: AWS = {
     },
     environment: {
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
-      region: '${opt:region, self:custom.ext.region}',
+      region: '${opt:region, self:provider.region}',
     },
     lambdaHashingVersion: '20201221',
     iamRoleStatements: [

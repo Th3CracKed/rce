@@ -16,7 +16,8 @@
     "memfs": "^3.2.2",
     "serverless-offline": "^7.0.0",
     "source-map-support": "^0.5.19",
-    "uuid": "^8.3.2"
+    "uuid": "^8.3.2",
+    "aws-sdk": "^2.840.0"
   },
   "devDependencies": {
     "@serverless/typescript": "^2.23.0",
