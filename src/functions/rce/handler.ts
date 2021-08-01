@@ -12,7 +12,8 @@ import AWS from 'aws-sdk';
 
 const lambda = new Lambda({ region, httpOptions: { timeout: 360000 } });
 
-const rce = async (event) => {
+const rce = async (event, context) => {
+  context.callbackWaitsForEmptyEventLoop = false;
   console.log('Event is :');
   console.log(event.body.code);
   const { lang = 'js', code: lambdaCode } = event.body;
@@ -23,8 +24,9 @@ const rce = async (event) => {
     await createFunction(params);
     await invokeFunction(params.FunctionName);
     console.log('Getting Logs...');
-    const logs = await getLogs(params.FunctionName, region);
+    const logs = await getLog(params.FunctionName, region);
     console.log('logs', logs);
+    deleteLog(params.FunctionName, region);
     return formatJSONResponse({
       result: logs
     });
@@ -126,7 +128,7 @@ function createZipFile(fileName: string, code: string) {
   });
 }
 
-function getLogs(id: string, region: string) {
+function getLog(id: string, region: string) {
   return new Promise<string>((resolve) => {
     const dynamoDbClient = new AWS.DynamoDB.DocumentClient({ region });
     dynamoDbClient.get({
@@ -142,8 +144,27 @@ function getLogs(id: string, region: string) {
       } else if (err) {
         console.error(err);
       }
-      const logs = await getLogs(id, region);
+      const logs = await getLog(id, region);
       resolve(logs);
+    });
+  });
+}
+
+function deleteLog(id: string, region: string) {
+  return new Promise((resolve, reject) => {
+    const dynamoDbClient = new AWS.DynamoDB.DocumentClient({ region });
+    dynamoDbClient.delete({
+      TableName: 'logs',
+      Key: {
+        id
+      }
+    }, (err, data) => {
+      if (err) {
+        console.error(err);
+        reject(err);
+      }
+      console.log('data', data);
+      resolve(data);
     });
   });
 }
