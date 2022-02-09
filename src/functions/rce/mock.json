@@ -1,0 +1,6 @@
+{
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"code\": \"console.log('dynamic Hello World');\"}"
+}
