@@ -1,0 +1,96 @@
+version: 2.1
+
+commands:
+  install:
+
+
+jobs:
+  install:
+    docker:
+      - image: cimg/node:16.15.0
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Install
+          command: yarn install --ignore-engines --frozen-lockfile
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - project/node_modules
+
+  build:
+    docker:
+      - image: cimg/node:16.15.0
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Build
+          command: yarn run build
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - project/build
+
+  test:
+    docker:
+      - image: cimg/node:16.15.0
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Run tests
+          command: yarn test
+      - store_test_results:
+          path: junit.xml
+
+  run:
+    docker:
+      - image: cimg/node:16.15.0
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-credentials.json
+      DEBUG: ponicode:OTHER_KPI-automation:*
+      DEBUG_DEPTH: Infinity
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Create GCP credentials file
+          command: echo $GCP_CREDENTIALS > $GOOGLE_APPLICATION_CREDENTIALS
+      - run:
+          name: Run
+          command: node build/main.js
+
+workflows:
+  ensure_validity:
+    jobs:
+      - install
+      - test:
+          requires:
+            - install
+      - build:
+          requires:
+            - install
+
+  daily-kpi-report:
+    triggers:
+      - schedule:
+          cron: "0 9 * * *"
+          filters:
+            branches:
+              only:
+               - master
+    jobs:
+      - install
+      - build:
+          requires:
+            - install
+      - run:
+          requires:
+            - build
+          context: kpi-bot
